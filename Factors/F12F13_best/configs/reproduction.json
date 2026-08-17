@@ -1,0 +1,20 @@
+{
+  "name": "F12F13_w60_40_safe_LB6627",
+  "base_model": "microsoft/deberta-v3-base",
+  "f12_weight": 0.6,
+  "f13_weight": 0.4,
+  "global_threshold_floor": 0.5,
+  "safe_threshold_floor": 0.6,
+  "safe_labels": [
+    "meaning in life",
+    "sense of responsibility",
+    "exposure to others' suicide",
+    "poor school performance",
+    "sexual orientation related issues",
+    "cognitive deficits",
+    "substance use"
+  ],
+  "reference_sha256": "10dfc9af089a1a4b2fbe93ffa0aef348e831a2e2246c1220fbed92ad42b5a99a",
+  "f12_fold0_mode": "historical_probability_artifact",
+  "reproduction_status": "byte_for_byte_verified"
+}
