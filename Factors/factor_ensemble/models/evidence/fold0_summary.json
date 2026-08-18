@@ -1,0 +1,49 @@
+{
+  "epoch": 5,
+  "p05": {
+    "name": "epoch5_p05",
+    "macro_f1": 0.5379655701196988,
+    "micro_f1": 0.6441307578008916,
+    "samples_f1": 0.5782284478417298,
+    "weighted_f1": 0.6570916337077903,
+    "exact_match": 0.11904761904761904,
+    "avg_pred": 4.866071428571429,
+    "avg_gold": 3.1458333333333335
+  },
+  "tuned": {
+    "name": "epoch5_tuned",
+    "macro_f1": 0.6244272025360963,
+    "micro_f1": 0.6847513357994246,
+    "samples_f1": 0.5987524713696161,
+    "weighted_f1": 0.6953265439143889,
+    "exact_match": 0.15178571428571427,
+    "avg_pred": 4.095238095238095,
+    "avg_gold": 3.1458333333333335
+  },
+  "thresholds": {
+    "hopelessness": 0.75,
+    "low self-esteem": 0.95,
+    "emotion dysregulation": 0.9,
+    "poor social support": 0.2,
+    "coping strategy": 0.95,
+    "psychological capital": 0.95,
+    "suicide means (with access)": 0.9,
+    "interpersonal difficulty": 0.9,
+    "mental health issues": 0.95,
+    "prior self-harm or suicidal thought/attempt": 0.6,
+    "stressful life event": 0.95,
+    "dysfunctional family": 0.15,
+    "social support": 0.25,
+    "interpersonal violence": 0.25,
+    "physical health/characteristic": 0.5499999999999999,
+    "sense of responsibility": 0.9,
+    "low socio-economic status": 0.95,
+    "traumatic experience": 0.3,
+    "meaning in life": 0.49999999999999994,
+    "cognitive deficits": 0.25,
+    "substance use": 0.95,
+    "exposure to others' suicide": 0.95,
+    "poor school performance": 0.95,
+    "sexual orientation related issues": 0.95
+  }
+}
