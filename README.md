@@ -23,7 +23,7 @@ Each verifier uses five-fold inference. Their post-level probabilities are combi
 
 The standalone Factors package accepts a CSV containing `row_id` and `post`, and produces `row_id` and `factors`.
 
-### Quick inference
+### Inference
 
     python Factors/factor_ensemble/predict.py \
       --input test.csv \
