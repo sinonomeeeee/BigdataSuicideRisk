@@ -122,7 +122,7 @@ Optional identifier columns such as `anon_user_id`, `user_id`, and `post_id` are
 With the standard filenames:
 
 ```bash
-python run_evidence_pipeline_local.py \
+python scripts/run_evidence_pipeline_local.py \
   --posts train_none.xlsx \
   --reviewed-negatives hard_negatives_modified.csv \
   --leaderboard leaderboard.xlsx \
@@ -134,7 +134,7 @@ python run_evidence_pipeline_local.py \
 For an official test file named `test.xlsx` and a risk result named `risk_results.csv`:
 
 ```bash
-python run_evidence_pipeline_local.py \
+python scripts/run_evidence_pipeline_local.py \
   --posts train_none.xlsx \
   --reviewed-negatives hard_negatives_modified.csv \
   --leaderboard test.xlsx \
