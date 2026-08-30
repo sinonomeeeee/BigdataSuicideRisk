@@ -1,6 +1,6 @@
-# Evidence Pipeline (Final: v18)
+# Evidence Pipeline
 
-This README documents the final evidence-extraction pipeline implemented by `run_evidence_pipeline_local_v18.py`.
+This README documents the final evidence-extraction pipeline implemented by `run_evidence_pipeline_local.py`.
 
 ## Pipeline overview
 
@@ -13,7 +13,7 @@ The production workflow is:
 5. Aggregate candidate-level evidence scores into one evidence prediction per test row.
 6. Add the aggregated evidence prediction to the competition result file.
 
-`run_evidence_pipeline_local_v18.py` is the canonical/final script for this pipeline.
+`run_evidence_pipeline_local.py` is the canonical/final script for this pipeline.
 
 ---
 
@@ -122,7 +122,7 @@ Optional identifier columns such as `anon_user_id`, `user_id`, and `post_id` are
 With the standard filenames:
 
 ```bash
-python run_evidence_pipeline_local_v18.py \
+python run_evidence_pipeline_local.py \
   --posts train_none.xlsx \
   --reviewed-negatives hard_negatives_modified.csv \
   --leaderboard leaderboard.xlsx \
@@ -134,7 +134,7 @@ python run_evidence_pipeline_local_v18.py \
 For an official test file named `test.xlsx` and a risk result named `risk_results.csv`:
 
 ```bash
-python run_evidence_pipeline_local_v18.py \
+python run_evidence_pipeline_local.py \
   --posts train_none.xlsx \
   --reviewed-negatives hard_negatives_modified.csv \
   --leaderboard test.xlsx \
@@ -337,7 +337,7 @@ The exact name of the evidence column in the competition result file should foll
 
 ## Final competition checklist
 
-- [ ] Use `run_evidence_pipeline_local_v18.py`.
+- [ ] Use `run_evidence_pipeline_local.py`.
 - [ ] Place/provide `train_none.xlsx`.
 - [ ] Place/provide `hard_negatives_modified.csv`.
 - [ ] Retrieve the completed risk-pipeline predictions for the official test rows.
@@ -356,7 +356,7 @@ The exact name of the evidence column in the competition result file should foll
 ## Canonical script
 
 ```text
-run_evidence_pipeline_local_v18.py
+run_evidence_pipeline_local.py
 ```
 
 Later experimental script numbers are not part of this final documented workflow unless explicitly adopted in the future.
