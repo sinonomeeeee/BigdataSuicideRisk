@@ -49,14 +49,36 @@ Additional training dependencies can be installed with:
 
 ## 3. Model Weights
 
-The model weights are not included directly in this source-code package
-because the complete Risk ensemble contains 20 large checkpoints.
+The complete final Risk ensemble contains 20 DeBERTa-v3-large checkpoints,
+so the large `.safetensors` files are distributed separately from this
+source-code package.
 
-See:
+Download all 20 model files from the GitHub Release described in:
 
-    models/README.md
+```text
+models/README.md
+```
 
-for the download location and required directory structure.
+The downloaded weights are provided as flat Release assets. Place all 20
+`.safetensors` files in one directory without renaming them.
+
+Prepare the runnable Hugging Face checkpoint directories with:
+
+```bash
+python models/prepare_models.py \
+  --weights-dir downloaded_weights \
+  --model-root models
+```
+
+The preparation script:
+
+1. checks that all 20 weight files are present;
+2. verifies every weight against `models/weights.sha256`;
+3. verifies the bundled ML384 and ML640 runtime metadata;
+4. creates the 20 checkpoint directories expected by `run_inference.py`.
+
+Detailed download, verification, and model-preparation instructions are
+provided in `models/README.md`.
 
 ## 4. Input Format
 
