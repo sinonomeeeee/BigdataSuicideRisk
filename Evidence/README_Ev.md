@@ -36,12 +36,40 @@ microsoft/deberta-v3-base
 
 ---
 
+## Execution location
+
+Run the evidence pipeline from the **project root directory**. The script itself is stored under `Evidence/`.
+
+Expected layout:
+
+```text
+BigDataSuicideRisk/
+├── test.csv
+├── SatAndSeriousTokyoScript.csv
+└── Evidence/
+    ├── run_evidence_pipeline_local.py
+    ├── train_none.xlsx
+    ├── hard_negatives_modified.csv
+    └── evidence_local_run/
+        └── best_model/
+```
+
+From `BigDataSuicideRisk/`, invoke the script as:
+
+```bash
+python Evidence/run_evidence_pipeline_local.py
+```
+
+All relative paths in the commands below are interpreted from the project root.
+
+---
+
 ## Required files
 
 ### Training data
 
-- `train_none.xlsx` — source training posts and gold evidence annotations.
-- `hard_negatives_modified.csv` — reviewed candidate labels/hard negatives used to correct and strengthen the training set.
+- `Evidence/train_none.xlsx` — source training posts and gold evidence annotations.
+- `Evidence/hard_negatives_modified.csv` — reviewed candidate labels/hard negatives used to correct and strengthen the training set.
 
 These are controlled by `--posts` and `--reviewed-negatives`.
 
@@ -49,7 +77,7 @@ These are controlled by `--posts` and `--reviewed-negatives`.
 
 The evidence pipeline does **not** independently recreate the competition risk prediction. Supply the previously obtained risk-pipeline output with `--risk-file`.
 
-Default:
+Default when running from the project root:
 
 ```text
 SatAndSeriousTokyoScript.csv
@@ -67,7 +95,7 @@ The test dataset supplied/run by the IEEE competition officials is passed with:
 --test TEST_FILE
 ```
 
-Default:
+Default when running from the project root:
 
 ```text
 test.csv
@@ -120,24 +148,24 @@ Optional identifier columns such as `anon_user_id`, `user_id`, and `post_id` are
 With the standard filenames:
 
 ```bash
-python scripts/run_evidence_pipeline_local.py \
-  --posts train_none.xlsx \
-  --reviewed-negatives hard_negatives_modified.csv \
+python Evidence/run_evidence_pipeline_local.py \
+  --posts Evidence/train_none.xlsx \
+  --reviewed-negatives Evidence/hard_negatives_modified.csv \
   --test test.csv \
   --risk-file SatAndSeriousTokyoScript.csv \
-  --output-dir evidence_local_run \
+  --output-dir Evidence/evidence_local_run \
   --device auto
 ```
 
 For an official test file named `test.xlsx` and a risk result named `risk_results.csv`:
 
 ```bash
-python scripts/run_evidence_pipeline_local.py \
-  --posts train_none.xlsx \
-  --reviewed-negatives hard_negatives_modified.csv \
+python Evidence/run_evidence_pipeline_local.py \
+  --posts Evidence/train_none.xlsx \
+  --reviewed-negatives Evidence/hard_negatives_modified.csv \
   --test test.xlsx \
   --risk-file risk_results.csv \
-  --output-dir evidence_local_run \
+  --output-dir Evidence/evidence_local_run \
   --device cuda \
   --fp16
 ```
@@ -151,7 +179,7 @@ The second command is the important competition pattern: **`--test` points to th
 The model directory is:
 
 ```text
-evidence_local_run/best_model/
+Evidence/evidence_local_run/best_model/
 ```
 
 If a completed model exists there and `--force` is not supplied, the script reuses the saved model instead of retraining it.
@@ -202,7 +230,7 @@ The final inference aggregation uses an overlap threshold fixed at `0.0`. If `me
 The main row-level output is:
 
 ```text
-evidence_local_run/test_inference/LB_aggregated_evidence.csv
+Evidence/evidence_local_run/test_inference/LB_aggregated_evidence.csv
 ```
 
 Important columns include:
@@ -217,19 +245,19 @@ Important columns include:
 The candidate-level inference output is:
 
 ```text
-evidence_local_run/test_inference/LB_candidate_scores.csv
+Evidence/evidence_local_run/test_inference/LB_candidate_scores.csv
 ```
 
 Generated test candidates are saved as:
 
 ```text
-evidence_local_run/test_inference/LB_E1_phrase_candidates.csv
+Evidence/evidence_local_run/test_inference/LB_E1_phrase_candidates.csv
 ```
 
 An inference summary is saved as:
 
 ```text
-evidence_local_run/test_inference/LB_inference_summary.json
+Evidence/evidence_local_run/test_inference/LB_inference_summary.json
 ```
 
 The directory is named `test_inference`, but the current script still uses the legacy `LB_` prefix for these four inference artifact filenames. This README preserves those exact filenames so that the documentation matches the implementation.
@@ -263,14 +291,14 @@ The exact name of the evidence column in the competition result file should foll
 
 | Argument | Default | Purpose |
 |---|---|---|
-| `--posts` | `train_none.xlsx` | Training posts/gold evidence source. |
-| `--reviewed-negatives` | `hard_negatives_modified.csv` | Human-reviewed labels/hard negatives. |
+| `--posts` | `Evidence/train_none.xlsx` | Training posts/gold evidence source. |
+| `--reviewed-negatives` | `Evidence/hard_negatives_modified.csv` | Human-reviewed labels/hard negatives. |
 | `--training-pairs` | none | Optional prebuilt training-pairs CSV. |
 | `--candidates` | none | Optional prebuilt training candidate CSV. |
 | `--test` | `test.csv` | **Official test file for final evidence inference.** |
 | `--risk-file` | `SatAndSeriousTokyoScript.csv` | Previously obtained risk-pipeline predictions for the same test rows. |
 | `--skip-test` | false | Skip final test inference. Do not use for a final competition run. |
-| `--output-dir` | `evidence_local_run` | Pipeline output/model directory. |
+| `--output-dir` | `Evidence/evidence_local_run` | Pipeline output/model directory. |
 
 ### Column names
 
@@ -336,17 +364,17 @@ The exact name of the evidence column in the competition result file should foll
 
 ## Final competition checklist
 
-- [ ] Use `run_evidence_pipeline_local.py`.
-- [ ] Place/provide `train_none.xlsx`.
-- [ ] Place/provide `hard_negatives_modified.csv`.
+- [ ] Run from the project root using `Evidence/run_evidence_pipeline_local.py`.
+- [ ] Place/provide `Evidence/train_none.xlsx`.
+- [ ] Place/provide `Evidence/hard_negatives_modified.csv`.
 - [ ] Retrieve the completed risk-pipeline predictions for the official test rows.
 - [ ] Pass the **IEEE official test file** to `--test` (default: `test.csv`).
 - [ ] Pass the corresponding risk-pipeline output to `--risk-file`.
 - [ ] Confirm test and risk files use matching official `row_id` values.
-- [ ] Reuse `evidence_local_run/best_model/` when the completed validated model exists.
+- [ ] Reuse `Evidence/evidence_local_run/best_model/` when the completed validated model exists.
 - [ ] Allow training/resume only when the completed model is unavailable.
 - [ ] Run candidate generation, scoring, and aggregation.
-- [ ] Check `test_inference/LB_aggregated_evidence.csv`.
+- [ ] Check `Evidence/evidence_local_run/test_inference/LB_aggregated_evidence.csv`.
 - [ ] Join `predicted` evidence into the official competition result by `row_id`.
 - [ ] Preserve the official result schema and row ordering.
 
@@ -355,7 +383,7 @@ The exact name of the evidence column in the competition result file should foll
 ## Canonical script
 
 ```text
-run_evidence_pipeline_local.py
+Evidence/run_evidence_pipeline_local.py
 ```
 
 Later experimental script numbers are not part of this final documented workflow unless explicitly adopted in the future.
