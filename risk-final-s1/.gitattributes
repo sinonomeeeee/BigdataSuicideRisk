@@ -1,0 +1,11 @@
+# Frozen tokenizer serialization is large and not useful as a textual diff.
+model_assets/tokenizer_short/tokenizer.json -diff
+model_assets/tokenizer_long/tokenizer.json -diff
+
+# Normalize text files to LF.
+*.py text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.tsv text eol=lf
+*.json text eol=lf

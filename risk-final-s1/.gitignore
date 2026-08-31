@@ -1,0 +1,58 @@
+# ------------------------------------------------------------
+# Model weights: publish separately as release assets
+# ------------------------------------------------------------
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+
+# ------------------------------------------------------------
+# Competition / research data: NEVER COMMIT
+# ------------------------------------------------------------
+data/
+dataset/
+datasets/
+raw_data/
+processed_data/
+train.csv
+leaderboard.csv
+test.csv
+submission.csv
+submissions/
+
+# ------------------------------------------------------------
+# Internal experiment artifacts
+# ------------------------------------------------------------
+runs/
+reports/
+registry/
+cache/
+logs/
+wandb/
+outputs/
+checkpoints/
+
+# ------------------------------------------------------------
+# Secrets
+# ------------------------------------------------------------
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+secrets.*
+token.txt
+
+# ------------------------------------------------------------
+# Python / IDE / OS
+# ------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

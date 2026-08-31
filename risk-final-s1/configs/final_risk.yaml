@@ -1,0 +1,70 @@
+schema_version: risk_final_s1_v1
+task:
+  name: suicide_risk_assessment
+  type: single_label_classification
+  labels:
+  - indicator
+  - ideation
+  - behavior
+  - attempt
+backbone:
+  name: microsoft/deberta-v3-large
+  architecture: DebertaV2ForSequenceClassification
+  num_labels: 4
+  resolved_model_commit: 64a8c8eab3e352a784c658aef62be1662607476f
+  training_tokenizer_class: DebertaV2Tokenizer
+  training_tokenizer_use_fast: false
+short_branch:
+  name: ML384
+  max_length: 384
+  seeds:
+  - 514
+  - 9
+  - 42
+  folds_per_seed: 5
+  fold_aggregation: equal_probability_mean
+  seed_aggregation: equal_probability_mean
+long_branch:
+  name: ML640
+  max_length: 640
+  seed: 514
+  folds: 5
+  fold_aggregation: equal_probability_mean
+routing:
+  feature: token_count_with_specials
+  tokenizer: tokenizer_short
+  threshold: 384
+  rule: use ML640 when token_count_with_specials > 384; otherwise use ML384
+  tokenizer_use_fast: true
+calibration:
+  method: scalar_temperature_scaling
+  temperature: 1.8528777092173991
+training_recipe:
+  split_method: StratifiedGroupKFold
+  n_splits: 5
+  split_seed: 514
+  group_column: anon_user_id
+  epochs: 8
+  learning_rate: 1.5e-05
+  weight_decay: 0.01
+  warmup_ratio: 0.08
+  max_grad_norm: 1.0
+  optimizer: adamw_torch_fused
+  effective_batch_size: 16
+  class_weight_power: 0.25
+  primary_metric: weighted_f1
+software_reference:
+  python_environment: suicide_llm
+  torch: 2.12.1+cu130
+  transformers: 5.12.1
+  safetensors: 0.8.0
+  numpy: 2.2.6
+  pandas: 2.3.3
+  scikit_learn: 1.7.2
+inference:
+  short_eval_batch_size: 16
+  long_eval_batch_size: 4
+  cuda_mixed_precision: bf16
+  dynamic_padding: true
+  cuda_pad_to_multiple_of: 8
+  fold_probability_dtype: float32
