@@ -64,27 +64,25 @@ The risk file must cover the test rows. Duplicate `row_id` values in the risk fi
 The test dataset supplied/run by the IEEE competition officials is passed with:
 
 ```text
---leaderboard TEST_FILE
+--test TEST_FILE
 ```
-
-Despite the argument name `--leaderboard`, **this is the test-file argument for final competition inference**. The name is retained because the v18 script calls the official inference dataset the “leaderboard” dataset internally.
 
 Default:
 
 ```text
-leaderboard.xlsx
+test.csv
 ```
 
 For example, if the competition officials provide `test.xlsx`:
 
 ```bash
---leaderboard test.xlsx
+--test test.xlsx
 ```
 
 If they provide a CSV:
 
 ```bash
---leaderboard test.csv
+--test test.csv
 ```
 
 The loader supports the table formats accepted by the script (including CSV/XLSX).
@@ -107,13 +105,13 @@ By default the script uses:
 --post-col post_y
 ```
 
-If `row_id` is absent, v18 creates row IDs from the input DataFrame index. For official competition inference, however, the test file should retain the official `row_id` so that evidence predictions can be joined reliably to the risk results and final result file.
+If `row_id` is absent, the script creates row IDs from the input DataFrame index. If the column exists but contains missing values, those values are not automatically repaired. For official competition inference, the test file should therefore contain a valid `row_id` for every row so that evidence predictions can be joined reliably to the risk results and final result file.
 
 If `post_y` is absent, the inference code falls back to a column named `post` or `post_y`. If neither exists, inference stops with an error.
 
 Optional identifier columns such as `anon_user_id`, `user_id`, and `post_id` are preserved in generated candidates when present.
 
-**Critical:** `row_id` values in the test file and risk file must identify the same rows. v18 normalizes row IDs for joining (for example, `10` and `10.0` can match), but the safest procedure is to preserve the official IDs unchanged in both files.
+**Critical:** `row_id` values in the test file and risk file must identify the same rows. The script normalizes row IDs for joining (for example, `10` and `10.0` can match), but the safest procedure is to preserve the official IDs unchanged in both files.
 
 ---
 
@@ -125,7 +123,7 @@ With the standard filenames:
 python scripts/run_evidence_pipeline_local.py \
   --posts train_none.xlsx \
   --reviewed-negatives hard_negatives_modified.csv \
-  --leaderboard leaderboard.xlsx \
+  --test test.csv \
   --risk-file SatAndSeriousTokyoScript.csv \
   --output-dir evidence_local_run \
   --device auto
@@ -137,14 +135,14 @@ For an official test file named `test.xlsx` and a risk result named `risk_result
 python scripts/run_evidence_pipeline_local.py \
   --posts train_none.xlsx \
   --reviewed-negatives hard_negatives_modified.csv \
-  --leaderboard test.xlsx \
+  --test test.xlsx \
   --risk-file risk_results.csv \
   --output-dir evidence_local_run \
   --device cuda \
   --fp16
 ```
 
-The second command is the important competition pattern: **`--leaderboard` points to the IEEE official test file, while `--risk-file` points to the already-obtained risk predictions for those same test rows.**
+The second command is the important competition pattern: **`--test` points to the IEEE official test file, while `--risk-file` points to the already-obtained risk predictions for those same test rows.**
 
 ---
 
@@ -156,9 +154,11 @@ The model directory is:
 evidence_local_run/best_model/
 ```
 
-If a completed model exists there and `--force` is not supplied, v18 reuses the saved model instead of retraining it.
+If a completed model exists there and `--force` is not supplied, the script reuses the saved model instead of retraining it.
 
 If no completed model exists, the script constructs/reuses candidates and training pairs, applies the reviewed labels from `hard_negatives_modified.csv`, creates grouped train/validation/test splits, and trains the model. Incomplete training can resume from the latest checkpoint unless `--no-resume` is specified.
+
+During training, checkpoints are evaluated once per epoch and the best checkpoint is selected by `gold_phrase_coverage` (higher is better). This metric is the fraction of unique validation gold evidence phrases covered by at least one candidate predicted positive at the model's 0.5 class decision threshold.
 
 Therefore the normal production behavior is:
 
@@ -176,7 +176,7 @@ Do **not** use `--force` for normal final inference when the validated model sho
 
 ## Test inference and evidence aggregation
 
-For the file supplied through `--leaderboard`, v18:
+For the file supplied through `--test`, the script:
 
 1. Loads the official test posts.
 2. Generates E1-style evidence candidates from each post.
@@ -191,10 +191,9 @@ Post: <post>
 5. Scores each non-`none` candidate with the evidence model.
 6. Aggregates candidate scores to row-level evidence predictions.
 7. Applies the risk-based override: a row whose risk is `Indicator` produces evidence `none`.
-8. Merges adjacent surviving evidence candidates in the original post.
-9. Writes one aggregated prediction per test `row_id`.
+8. Writes one aggregated prediction per test `row_id`.
 
-The final inference aggregation uses an overlap threshold fixed at `0.0`. If `metrics/best_aggregation_settings.json` exists, its tuned threshold and maximum-phrase setting are reused; otherwise the configured defaults are used.
+The final inference aggregation uses an overlap threshold fixed at `0.0`. If `metrics/best_aggregation_settings.json` exists, its tuned probability threshold is reused; otherwise `--default-threshold` is used. The current script does not apply a maximum-phrase limit.
 
 ---
 
@@ -203,7 +202,7 @@ The final inference aggregation uses an overlap threshold fixed at `0.0`. If `me
 The main row-level output is:
 
 ```text
-evidence_local_run/leaderboard_inference/LB_aggregated_evidence.csv
+evidence_local_run/test_inference/LB_aggregated_evidence.csv
 ```
 
 Important columns include:
@@ -218,20 +217,22 @@ Important columns include:
 The candidate-level inference output is:
 
 ```text
-evidence_local_run/leaderboard_inference/LB_candidate_scores.csv
+evidence_local_run/test_inference/LB_candidate_scores.csv
 ```
 
 Generated test candidates are saved as:
 
 ```text
-evidence_local_run/leaderboard_inference/LB_E1_phrase_candidates.csv
+evidence_local_run/test_inference/LB_E1_phrase_candidates.csv
 ```
 
 An inference summary is saved as:
 
 ```text
-evidence_local_run/leaderboard_inference/LB_inference_summary.json
+evidence_local_run/test_inference/LB_inference_summary.json
 ```
+
+The directory is named `test_inference`, but the current script still uses the legacy `LB_` prefix for these four inference artifact filenames. This README preserves those exact filenames so that the documentation matches the implementation.
 
 ---
 
@@ -266,9 +267,9 @@ The exact name of the evidence column in the competition result file should foll
 | `--reviewed-negatives` | `hard_negatives_modified.csv` | Human-reviewed labels/hard negatives. |
 | `--training-pairs` | none | Optional prebuilt training-pairs CSV. |
 | `--candidates` | none | Optional prebuilt training candidate CSV. |
-| `--leaderboard` | `leaderboard.xlsx` | **Official test file for final evidence inference.** |
+| `--test` | `test.csv` | **Official test file for final evidence inference.** |
 | `--risk-file` | `SatAndSeriousTokyoScript.csv` | Previously obtained risk-pipeline predictions for the same test rows. |
-| `--skip-leaderboard` | false | Skip official/test inference. Do not use for a final competition run. |
+| `--skip-test` | false | Skip final test inference. Do not use for a final competition run. |
 | `--output-dir` | `evidence_local_run` | Pipeline output/model directory. |
 
 ### Column names
@@ -325,11 +326,9 @@ The exact name of the evidence column in the competition result file should foll
 |---|---:|
 | `--no-tune-aggregation` | false |
 | `--threshold-grid` | `0.40,0.50,0.60,0.65,0.70,0.75,0.80,0.85,0.90` |
-| `--overlap-grid` | `0.0` |
-| `--max-phrases-grid` | `0,1,2,3,4` (`0` = unlimited) |
+| `--overlap-grid` | `0.0` (argument exists, but current tuning is fixed to `0.0`) |
 | `--default-threshold` | `0.70` |
-| `--default-overlap-threshold` | `0.0` |
-| `--default-max-phrases` | `0` (unlimited) |
+| `--default-overlap-threshold` | `0.0` (current final aggregation is fixed to `0.0`) |
 | `--min-match-word-ratio` | `1/3` |
 | `--max-match-word-ratio` | `3.0` |
 
@@ -341,13 +340,13 @@ The exact name of the evidence column in the competition result file should foll
 - [ ] Place/provide `train_none.xlsx`.
 - [ ] Place/provide `hard_negatives_modified.csv`.
 - [ ] Retrieve the completed risk-pipeline predictions for the official test rows.
-- [ ] Pass the **IEEE official test file** to `--leaderboard`.
+- [ ] Pass the **IEEE official test file** to `--test` (default: `test.csv`).
 - [ ] Pass the corresponding risk-pipeline output to `--risk-file`.
 - [ ] Confirm test and risk files use matching official `row_id` values.
 - [ ] Reuse `evidence_local_run/best_model/` when the completed validated model exists.
 - [ ] Allow training/resume only when the completed model is unavailable.
 - [ ] Run candidate generation, scoring, and aggregation.
-- [ ] Check `leaderboard_inference/LB_aggregated_evidence.csv`.
+- [ ] Check `test_inference/LB_aggregated_evidence.csv`.
 - [ ] Join `predicted` evidence into the official competition result by `row_id`.
 - [ ] Preserve the official result schema and row ordering.
 
