@@ -32,7 +32,7 @@ Additionally, a csv containing previously predicted 'suicide risk' is required.
 Final output is documentet as:
 Evidence/evidence_local_run/test_inference/LB_aggregated_evidence.csv
 
-See Evidence/Readme_Ev.md for detailed instructions.
+See **[Here](Evidence/README_Ev.md)** for detailed instructions.
 
 ## Factors
 
