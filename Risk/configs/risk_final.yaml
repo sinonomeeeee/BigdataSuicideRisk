@@ -1,0 +1,61 @@
+task: risk_assessment
+
+input:
+  text_column: post
+  row_id_column: row_id
+  group_column: anon_user_id
+  output_risk_column: suicide risk
+
+labels:
+  - indicator
+  - ideation
+  - behavior
+  - attempt
+
+model:
+  tokenizer_use_fast: false
+
+  ml384:
+    max_length: 384
+    seeds:
+      - 514
+      - 9
+      - 42
+    folds:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+    batch_size: 16
+
+  ml640:
+    max_length: 640
+    seeds:
+      - 514
+    folds:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+    batch_size: 4
+
+routing:
+  length_definition: token_count_with_specials
+  threshold: 384
+  short_branch: ml384
+  long_branch: ml640
+
+ensemble:
+  fold_rule: equal_probability_average
+  ml384_seed_rule: equal_probability_average
+
+calibration:
+  enabled: true
+  method: scalar_temperature
+  temperature: 1.8528777092173991
+
+runtime:
+  device: auto
+  use_bf16_on_cuda: true
