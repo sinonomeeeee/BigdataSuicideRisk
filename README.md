@@ -10,6 +10,30 @@ This repository contains the implementation of our submission, organized into th
 
 ## Evidence
 
+The **Evidence** component extracts suicide-related phrases from social-media posts.
+
+Our Evidence extraction system is based on DeBERTa-v3-base, and follows the procedure:
+
+- Candidate Generation
+- Binary Classification
+- Evidence Aggregation
+
+The Evidence inference accepts a csv containing columns 'row_id' and 'post'.
+(Default: test.csv)
+Additionally, a csv containing previously predicted 'suicide risk' is required.
+(Default: SatAndSeriousTokyoScript.csv)
+
+### Execution
+    python Evidence/run_evidence_pipeline_local.py \
+        --test test.csv \
+        --risk-file SatAndSeriousTokyoScript.csv \
+        --output-dir Evidence/evidence_local_run
+        
+Final output is documentet as:
+Evidence/evidence_local_run/test_inference/LB_aggregated_evidence.csv
+
+See Evidence/Readme_Ev.md for detailed instructions.
+
 ## Factors
 
 The **Factors** component identifies suicide-risk-related factors expressed in social-media posts.
