@@ -122,10 +122,8 @@ class Config:
     tune_aggregation: bool = False
     threshold_grid: list[float] = 0.0
     overlap_grid: list[float] = 0.0
-    max_phrases_grid: list[int] = 0
     default_threshold: float = 0.0
     default_overlap_threshold: float = 0.0
-    default_max_phrases: int = 0
     min_match_word_ratio: float = 0.0
     max_match_word_ratio: float = 0.0
     force: bool = False
@@ -273,15 +271,8 @@ def parse_args() -> argparse.Namespace:
         type=parse_float_list,
         default=parse_float_list("0.0"),
     )
-    parser.add_argument(
-        "--max-phrases-grid",
-        type=parse_int_list,
-        default=parse_int_list("0,1,2,3,4"),
-        help="0 means unlimited.",
-    )
     parser.add_argument("--default-threshold", type=float, default=0.70)
     parser.add_argument("--default-overlap-threshold", type=float, default=0.0)
-    parser.add_argument("--default-max-phrases", type=int, default=0)
     parser.add_argument("--min-match-word-ratio", type=float, default=1 / 3)
     parser.add_argument("--max-match-word-ratio", type=float, default=3.0)
 
@@ -1036,7 +1027,6 @@ def select_phrases_from_group(
     candidate_col: str,
     threshold: float,
     overlap_threshold: float,
-    max_phrases: int,
 ) -> tuple[list[str], list[float]]:
     working = group[[candidate_col, "prob_evidence"]].copy()
     working[candidate_col] = working[candidate_col].map(clean_text)
@@ -1066,8 +1056,6 @@ def select_phrases_from_group(
     selected = keep_highest_probability_per_overlap_group(
         candidates, overlap_threshold=overlap_threshold
     )
-    if max_phrases > 0:
-        selected = selected[:max_phrases]
     return [item[0] for item in selected], [item[1] for item in selected]
 
 
@@ -1165,106 +1153,6 @@ def row_metrics(
 
 
 
-def merge_adjacent_candidates_in_post(
-    post: str,
-    phrases: list[str],
-    probabilities: list[float],
-) -> tuple[list[str], list[float]]:
-    """
-    Merge selected candidate phrases that are adjacent in the original post.
-
-    Two spans are considered adjacent when, in post order, there is no word
-    character between the end of the first span and the start of the second.
-    Whitespace and punctuation-only separators are therefore mergeable.
-
-    The merged phrase is copied from the original post so punctuation between
-    the two candidates is preserved. Its probability is the maximum probability
-    of the merged candidates.
-    """
-    if len(phrases) < 2 or not clean_text(post):
-        return phrases, probabilities
-
-    post_text = str(post)
-    post_fold = post_text.casefold()
-
-    located: list[tuple[int, int, str, float, int]] = []
-    occurrence_cursor: dict[str, int] = {}
-
-    for original_index, phrase in enumerate(phrases):
-        phrase_text = clean_text(phrase)
-        probability = (
-            float(probabilities[original_index])
-            if original_index < len(probabilities)
-            else 0.0
-        )
-
-        if not phrase_text:
-            continue
-
-        needle = phrase_text.casefold()
-        cursor = occurrence_cursor.get(needle, 0)
-        start = post_fold.find(needle, cursor)
-
-        # If the phrase only occurs before the cursor, retain the first match.
-        if start < 0:
-            start = post_fold.find(needle)
-
-        if start < 0:
-            # Keep candidates that cannot be mapped back to the post, but do not
-            # attempt to merge them.
-            located.append(
-                (10**12 + original_index, 10**12 + original_index,
-                 phrase_text, probability, original_index)
-            )
-            continue
-
-        end = start + len(needle)
-        occurrence_cursor[needle] = end
-        located.append((start, end, phrase_text, probability, original_index))
-
-    positioned = [item for item in located if item[0] < 10**12]
-    unpositioned = [item for item in located if item[0] >= 10**12]
-
-    if len(positioned) < 2:
-        return phrases, probabilities
-
-    positioned.sort(key=lambda item: (item[0], item[1]))
-
-    merged: list[tuple[int, str, float]] = []
-    current_start, current_end, current_phrase, current_prob, _ = positioned[0]
-
-    for start, end, phrase, probability, _ in positioned[1:]:
-        # Overlapping candidates should already have been handled by overlap
-        # suppression. Only merge non-overlapping spans here.
-        if start >= current_end:
-            between = post_text[current_end:start]
-            adjacent = re.search(r"\w", between, flags=re.UNICODE) is None
-        else:
-            adjacent = False
-
-        if adjacent:
-            current_end = end
-            current_phrase = clean_text(post_text[current_start:current_end])
-            current_prob = max(current_prob, probability)
-        else:
-            merged.append((current_start, current_phrase, current_prob))
-            current_start = start
-            current_end = end
-            current_phrase = phrase
-            current_prob = probability
-
-    merged.append((current_start, current_phrase, current_prob))
-
-    # Preserve any candidate we could not locate in the post.
-    for start, _, phrase, probability, _ in unpositioned:
-        merged.append((start, phrase, probability))
-
-    merged.sort(key=lambda item: item[0])
-
-    return (
-        [phrase for _, phrase, _ in merged],
-        [probability for _, _, probability in merged],
-    )
 
 
 
@@ -1273,7 +1161,6 @@ def aggregate_split(
     cfg: Config,
     threshold: float,
     overlap_threshold: float,
-    max_phrases: int,
     risk_col: str | None,
 ) -> tuple[pd.DataFrame, dict[str, float]]:
     rows: list[dict[str, Any]] = []
@@ -1284,7 +1171,6 @@ def aggregate_split(
             candidate_col=cfg.candidate_col,
             threshold=threshold,
             overlap_threshold=overlap_threshold,
-            max_phrases=max_phrases,
         )
 
         golds = unique_phrases(group[cfg.gold_col])
@@ -1303,12 +1189,6 @@ def aggregate_split(
 
         # Final aggregation rule: when two surviving candidates are adjacent
         # in the source post, merge them before row-level evaluation/output.
-        if not indicator_override:
-            phrases, probabilities = merge_adjacent_candidates_in_post(
-                post=post,
-                phrases=phrases,
-                probabilities=probabilities,
-            )
 
         precision, recall, f1, tp = row_metrics(
             phrases,
@@ -1377,7 +1257,7 @@ def tune_aggregation(
     - print progress for every combination so the process never looks hung.\n    Adjacent-span merging is deliberately NOT applied during tuning; it is\n    applied only after aggregation settings are selected.\n    """
     print(
         f"\nAggregation grid search: "
-        f"{len(cfg.threshold_grid) * len(cfg.overlap_grid) * len(cfg.max_phrases_grid)} combinations"
+        f"{len(cfg.threshold_grid)} combinations"
     )
 
     # Precompute everything that does not depend on the grid setting.
@@ -1464,7 +1344,6 @@ def tune_aggregation(
         item: dict[str, Any],
         threshold: float,
         overlap_threshold: float,
-        max_phrases: int,
     ) -> tuple[list[str], list[float]]:
         phrases_all = item["phrases"]
         probs_all = item["probs"]
@@ -1510,8 +1389,6 @@ def tune_aggregation(
 
         selected_indices.sort(key=lambda i: probs_all[i], reverse=True)
 
-        if max_phrases > 0:
-            selected_indices = selected_indices[:max_phrases]
 
         return (
             [phrases_all[i] for i in selected_indices],
@@ -1519,101 +1396,93 @@ def tune_aggregation(
         )
 
     rows: list[dict[str, Any]] = []
-    total_combinations = (
-        len(cfg.threshold_grid)
-        * 1
-        * len(cfg.max_phrases_grid)
-    )
+    total_combinations = len(cfg.threshold_grid)
     combo_index = 0
 
     for threshold in cfg.threshold_grid:
         for overlap_threshold in (0.0,):
-            for max_phrases in cfg.max_phrases_grid:
-                combo_index += 1
-                print(
-                    f"  [{combo_index:3d}/{total_combinations}] "
-                    f"threshold={threshold:.2f}, "
-                    f"overlap={overlap_threshold:.2f}, "
-                    f"max_phrases={max_phrases or 'all'}",
-                    flush=True,
-                )
+            combo_index += 1
+            print(
+                f"  [{combo_index:3d}/{total_combinations}] "
+                f"threshold={threshold:.2f}, "
+                f"overlap={overlap_threshold:.2f}", 
+                flush=True,
+            )
 
-                metric_rows: list[tuple[float, float, float, int, int, int]] = []
+            metric_rows: list[tuple[float, float, float, int, int, int]] = []
 
-                for item in prepared_groups:
-                    if item["indicator_override"]:
-                        phrases = []
-                        probabilities = []
-                    else:
-                        phrases, probabilities = select_cached(
-                            item,
-                            threshold=threshold,
-                            overlap_threshold=overlap_threshold,
-                            max_phrases=max_phrases,
-                        )
-
-                    precision, recall, f1, tp = row_metrics(
-                        phrases,
-                        item["golds"],
-                        min_word_ratio=cfg.min_match_word_ratio,
-                        max_word_ratio=cfg.max_match_word_ratio,
+            for item in prepared_groups:
+                if item["indicator_override"]:
+                    phrases = []
+                    probabilities = []
+                else:
+                    phrases, probabilities = select_cached(
+                        item,
+                        threshold=threshold,
+                        overlap_threshold=overlap_threshold,
                     )
 
-                    metric_rows.append(
-                        (
-                            precision,
-                            recall,
-                            f1,
-                            tp,
-                            len(phrases),
-                            len(item["golds"]),
-                        )
+                precision, recall, f1, tp = row_metrics(
+                    phrases,
+                    item["golds"],
+                    min_word_ratio=cfg.min_match_word_ratio,
+                    max_word_ratio=cfg.max_match_word_ratio,
+                )
+
+                metric_rows.append(
+                    (
+                        precision,
+                        recall,
+                        f1,
+                        tp,
+                        len(phrases),
+                        len(item["golds"]),
                     )
-
-                macro_precision = float(
-                    np.mean([x[0] for x in metric_rows])
-                )
-                macro_recall = float(
-                    np.mean([x[1] for x in metric_rows])
-                )
-                macro_f1 = float(
-                    np.mean([x[2] for x in metric_rows])
                 )
 
-                total_tp = sum(x[3] for x in metric_rows)
-                total_predictions = sum(x[4] for x in metric_rows)
-                total_gold = sum(x[5] for x in metric_rows)
+            macro_precision = float(
+                np.mean([x[0] for x in metric_rows])
+            )
+            macro_recall = float(
+                np.mean([x[1] for x in metric_rows])
+            )
+            macro_f1 = float(
+                np.mean([x[2] for x in metric_rows])
+            )
 
-                micro_precision = (
-                    total_tp / total_predictions
-                    if total_predictions
-                    else 0.0
-                )
-                micro_recall = (
-                    total_tp / total_gold
-                    if total_gold
-                    else 0.0
-                )
-                micro_f1 = (
-                    2 * micro_precision * micro_recall
-                    / (micro_precision + micro_recall)
-                    if micro_precision + micro_recall
-                    else 0.0
-                )
+            total_tp = sum(x[3] for x in metric_rows)
+            total_predictions = sum(x[4] for x in metric_rows)
+            total_gold = sum(x[5] for x in metric_rows)
 
-                rows.append(
-                    {
-                        "threshold": float(threshold),
-                        "overlap_threshold": 0.0,
-                        "max_phrases": int(max_phrases),
-                        "macro_row_precision": macro_precision,
-                        "macro_row_recall": macro_recall,
-                        "macro_row_f1": macro_f1,
-                        "micro_precision": micro_precision,
-                        "micro_recall": micro_recall,
-                        "micro_f1": micro_f1,
-                    }
-                )
+            micro_precision = (
+                total_tp / total_predictions
+                if total_predictions
+                else 0.0
+            )
+            micro_recall = (
+                total_tp / total_gold
+                if total_gold
+                else 0.0
+            )
+            micro_f1 = (
+                2 * micro_precision * micro_recall
+                / (micro_precision + micro_recall)
+                if micro_precision + micro_recall
+                else 0.0
+            )
+
+            rows.append(
+                {
+                    "threshold": float(threshold),
+                    "overlap_threshold": 0.0,
+                    "macro_row_precision": macro_precision,
+                    "macro_row_recall": macro_recall,
+                    "macro_row_f1": macro_f1,
+                    "micro_precision": micro_precision,
+                    "micro_recall": micro_recall,
+                    "micro_f1": micro_f1,
+                }
+            )
 
     tuning = pd.DataFrame(rows)
 
@@ -1630,7 +1499,6 @@ def tune_aggregation(
         "\nBest aggregation setting: "
         f"threshold={best['threshold']:.2f}, "
         f"overlap={best['overlap_threshold']:.2f}, "
-        f"max_phrases={int(best['max_phrases']) or 'all'}, "
         f"macro_row_f1={best['macro_row_f1']:.6f}"
     )
 
@@ -2062,14 +1930,13 @@ def aggregate_inference_predictions(
     cfg: Config,
     threshold: float,
     overlap_threshold: float,
-    max_phrases: int,
     risk_col: str,
 ) -> pd.DataFrame:
     """
     Aggregate leaderboard evidence using the selected settings.
 
     Order is:
-      score -> threshold/overlap/max-phrases aggregation
+      score -> threshold/overlap aggregation
       -> Indicator override
       -> adjacent-span merge
       -> output
@@ -2086,7 +1953,6 @@ def aggregate_inference_predictions(
             candidate_col=cfg.candidate_col,
             threshold=threshold,
             overlap_threshold=overlap_threshold,
-            max_phrases=max_phrases,
         )
 
         risk_values = [
@@ -2109,12 +1975,7 @@ def aggregate_inference_predictions(
         post = post_values[0] if post_values else ""
 
         # IMPORTANT: adjacency is handled only after ordinary aggregation.
-        if not indicator_override:
-            phrases, probabilities = merge_adjacent_candidates_in_post(
-                post=post,
-                phrases=phrases,
-                probabilities=probabilities,
-            )
+        
 
         rows.append(
             {
@@ -2168,7 +2029,6 @@ def run_leaderboard_inference(
         # Leaderboard aggregation intentionally uses zero overlap threshold.
         # Any pair sharing at least one token is treated as overlapping.
         overlap_threshold = 0.0
-        max_phrases = int(settings["max_phrases"])
         settings_source = (
             str(settings_path.resolve())
             + " (overlap fixed globally at 0.0)"
@@ -2176,7 +2036,6 @@ def run_leaderboard_inference(
     else:
         threshold = cfg.default_threshold
         overlap_threshold = 0.0
-        max_phrases = cfg.default_max_phrases
         settings_source = "Config defaults (overlap fixed globally at 0.0)"
 
     leaderboard_dir = output_dir / "leaderboard_inference"
@@ -2192,7 +2051,6 @@ def run_leaderboard_inference(
     print(f"Aggregation settings:  {settings_source}")
     print(f"  threshold:           {threshold:.3f}")
     print(f"  overlap threshold:   {overlap_threshold:.3f}")
-    print(f"  max phrases:         {max_phrases or 'unlimited'}")
 
     if candidates_path.exists() and not cfg.force:
         print(f"Reusing leaderboard candidates: {candidates_path.resolve()}")
@@ -2240,7 +2098,6 @@ def run_leaderboard_inference(
         cfg=cfg,
         threshold=threshold,
         overlap_threshold=overlap_threshold,
-        max_phrases=max_phrases,
         risk_col=risk_col,
     )
     aggregated.to_csv(
@@ -2261,7 +2118,6 @@ def run_leaderboard_inference(
             "threshold": threshold,
             "overlap_threshold": overlap_threshold,
             "leaderboard_overlap_forced": True,
-            "max_phrases": max_phrases,
             "source": settings_source,
         },
         "candidate_output": str(scored_path.resolve()),
@@ -2528,10 +2384,8 @@ def main() -> None:
         tune_aggregation=not args.no_tune_aggregation,
         threshold_grid=args.threshold_grid,
         overlap_grid=args.overlap_grid,
-        max_phrases_grid=args.max_phrases_grid,
         default_threshold=args.default_threshold,
         default_overlap_threshold=args.default_overlap_threshold,
-        default_max_phrases=args.default_max_phrases,
         min_match_word_ratio=args.min_match_word_ratio,
         max_match_word_ratio=args.max_match_word_ratio,
         force=args.force,
@@ -2838,15 +2692,12 @@ def main() -> None:
 
         threshold = float(best_settings["threshold"])
         overlap_threshold = 0.0
-        max_phrases = int(best_settings["max_phrases"])
     else:
         threshold = cfg.default_threshold
         overlap_threshold = 0.0
-        max_phrases = cfg.default_max_phrases
         best_settings = {
             "threshold": threshold,
             "overlap_threshold": overlap_threshold,
-            "max_phrases": max_phrases,
             "source": "defaults (--no-tune-aggregation)",
         }
 
@@ -2857,7 +2708,6 @@ def main() -> None:
         cfg=cfg,
         threshold=threshold,
         overlap_threshold=overlap_threshold,
-        max_phrases=max_phrases,
         risk_col=risk_col,
     )
     validation_rows.to_csv(
@@ -2869,7 +2719,6 @@ def main() -> None:
     print("\nSelected aggregation settings:")
     print(f"  probability threshold: {threshold:.3f}")
     print(f"  overlap threshold:     {overlap_threshold:.3f}")
-    print(f"  max phrases:           {max_phrases or 'unlimited'}")
     print(f"  validation row F1:     {validation_row_metrics['macro_row_f1']:.6f}")
 
     # --------------------------------------------------------------
@@ -2912,7 +2761,6 @@ def main() -> None:
         cfg=cfg,
         threshold=threshold,
         overlap_threshold=overlap_threshold,
-        max_phrases=max_phrases,
         risk_col=risk_col,
     )
     test_rows.to_csv(
@@ -2927,7 +2775,6 @@ def main() -> None:
         "aggregation_settings": {
             "threshold": threshold,
             "overlap_threshold": overlap_threshold,
-            "max_phrases": max_phrases,
             "validation_best_grid_row": best_settings,
         },
         "validation_candidate_metrics_at_0_5": validation_candidate_metrics,
