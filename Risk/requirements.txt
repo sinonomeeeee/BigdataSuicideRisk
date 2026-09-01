@@ -1,0 +1,9 @@
+numpy>=1.26
+pandas>=2.2
+PyYAML>=6.0
+scikit-learn>=1.4
+torch>=2.2
+transformers>=4.42,<6
+sentencepiece>=0.2
+safetensors>=0.4
+protobuf>=4.25

@@ -1,0 +1,78 @@
+experiment:
+  id: risk_phase3e_ml640_right_seed514_v1
+  task: risk_4class
+  description: DeBERTa-v3-large seed514 using FP32 trainable parameters loaded from
+    the original PyTorch checkpoint, with BF16 mixed precision.
+  tags:
+  - risk
+  - four_class
+  - deberta_v3_large
+  - seed_514
+  - main_framework
+data:
+  dataset_version: competition_v1
+  train_path: data/processed/competition_v1/train.csv
+  leaderboard_path: data/processed/competition_v1/leaderboard.csv
+  data_manifest_path: registry/data_manifests/competition_v1_processed.json
+  row_id_column: row_id
+  group_column: anon_user_id
+  text_column: post
+  label_column: suicide risk
+  labels:
+  - indicator
+  - ideation
+  - behavior
+  - attempt
+splits:
+  method: StratifiedGroupKFold
+  n_splits: 5
+  shuffle: true
+  seed: 514
+  manifest_csv: registry/split_manifests/risk_sgkf5_seed514.csv
+  manifest_json: registry/split_manifests/risk_sgkf5_seed514.json
+  create_if_missing: true
+model:
+  name: microsoft/deberta-v3-large
+  revision: main
+  tokenizer_use_fast: false
+  max_length: 640
+  num_labels: 4
+training:
+  seed: 514
+  seed_per_fold: false
+  epochs: 8
+  learning_rate: 1.5e-05
+  weight_decay: 0.01
+  warmup_ratio: 0.08
+  max_grad_norm: 1.0
+  optimizer: adamw_torch_fused
+  train_batch_size: 2
+  eval_batch_size: 4
+  gradient_accumulation_steps: 8
+  effective_batch_size: 16
+  class_weight_power: 0.25
+  primary_metric: weighted_f1
+  early_stopping_patience: 0
+  early_stopping_threshold: 0.0
+  precision: bf16
+  tf32: false
+  gradient_checkpointing: false
+  group_by_length: true
+  full_determinism: false
+  logging_steps: 20
+  save_total_limit: 2
+  dataloader_num_workers: 4
+  fail_on_single_class_prediction: true
+runtime:
+  device: cuda
+  hf_home: cache/huggingface
+  tokenizers_parallelism: false
+  active_run_pointer: registry/active_runs/risk_phase3e_ml640_right_seed514_v1.txt
+outputs:
+  save_best_model: true
+  save_fold_probabilities: true
+  save_oof_probabilities: true
+  save_leaderboard_probabilities: true
+  save_confusion_matrix: true
+  registry_jsonl: registry/experiment_registry.jsonl
+  model_registry_jsonl: registry/model_registry.jsonl
