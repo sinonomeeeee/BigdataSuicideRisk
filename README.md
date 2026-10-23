@@ -56,3 +56,11 @@ The standalone Factors package accepts a CSV containing `row_id` and `post`, and
 For detailed information about installation, model architecture, checkpoints, factor taxonomy, thresholds, input/output format, and reproduction instructions, see:
 
 **[Factors — Detailed Documentation](Factors/factor_ensemble/README.md)**
+
+## Related Publication
+
+The work in this repository was subsequently developed into the following paper, accepted at the **2nd MHSM Workshop**, held in conjunction with **IEEE ICDM 2026**
+
+**arXiv Preprint Version link**:
+
+**[Beyond Risk Prediction: Evidence Grounding and Psychosocial Factor Verification for Explainable Suicide Risk Assessment](PAPER_URL)**
