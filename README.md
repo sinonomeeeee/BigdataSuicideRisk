@@ -63,4 +63,4 @@ The work in this repository was subsequently developed into the following paper,
 
 **arXiv Preprint Version link**:
 
-**[Beyond Risk Prediction: Evidence Grounding and Psychosocial Factor Verification for Explainable Suicide Risk Assessment](PAPER_URL)**
+**[Beyond Risk Prediction: Evidence Grounding and Psychosocial Factor Verification for Explainable Suicide Risk Assessment](https://arxiv.org/abs/2610.08842)**
